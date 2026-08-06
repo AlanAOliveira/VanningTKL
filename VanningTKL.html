@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Vanning TKL - Nota Fiscal</title>
+</head>
+<body>
+    <h1>Vanning TKL</h1>
+
+    <h2>Adicionar Kit</h2>
+    <input type="text" id="codigo" placeholder="Código (ex: AF.rack)">
+    <input type="number" id="quantidade" placeholder="Quantidade" min="1">
+    <button onclick="addKit()">Adicionar</button>
+
+    <h2>Lista de Kits</h2>
+    <ul id="lista"></ul>
+
+    <button onclick="enviarNota()">Gerar Nota Fiscal</button>
+    <button onclick="limparLista()">Limpar Lista</button>
+
+    <h3>Status</h3>
+    <pre id="status"></pre>
+
+    <script>
+        const FLOW_URL = "https://default3855fb14c2214399b3f897d96a4ce4.5d.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/17/workflows/bd3dd769e79c46cba4b8a7dcc0d892b9/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=OuAmSEDE75Z9wgIHtSg9RXTjUzhgwUD1nNbU_7tPtk8";
+
+        let kits = [];
+
+        function addKit() {
+            const codigo = document.getElementById('codigo').value.trim();
+            const quantidade = parseInt(document.getElementById('quantidade').value);
+
+            if (!codigo || !quantidade || quantidade < 1) {
+                alert('Preencha código e quantidade válida');
+                return;
+            }
+
+            kits.push({ codigo: codigo, quantidade: quantidade });
+            renderLista();
+
+            document.getElementById('codigo').value = '';
+            document.getElementById('quantidade').value = '';
+            document.getElementById('codigo').focus();
+        }
+
+        function renderLista() {
+            const lista = document.getElementById('lista');
+            lista.innerHTML = '';
+            kits.forEach((kit, i) => {
+                const li = document.createElement('li');
+                li.textContent = `${kit.codigo} - Qtd: ${kit.quantidade} `;
+                const btn = document.createElement('button');
+                btn.textContent = 'Remover';
+                btn.onclick = () => { kits.splice(i, 1); renderLista(); };
+                li.appendChild(btn);
+                lista.appendChild(li);
+            });
+        }
+
+        function limparLista() {
+            kits = [];
+            renderLista();
+        }
+
+        async function enviarNota() {
+            const status = document.getElementById('status');
+
+            if (kits.length === 0) {
+                alert('Adicione pelo menos um kit');
+                return;
+            }
+
+            const payload = { kits: kits };
+            status.textContent = 'Enviando...\n' + JSON.stringify(payload, null, 2);
+
+            try {
+                const response = await fetch(FLOW_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const text = await response.text();
+                status.textContent = `Status: ${response.status}\nResposta: ${text}`;
+            } catch (error) {
+                status.textContent = 'Erro: ' + error.message;
+            }
+        }
+    </script>
+</body>
+</html>
