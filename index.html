@@ -20,7 +20,6 @@
         li { padding: 10px; background: #f4f4f4; margin: 5px 0; display: flex; justify-content: space-between; align-items: center; border-radius: 4px; }
         .total { font-weight: bold; margin: 10px 0; font-size: 16px; }
         
-        /* QR Scanner */
         #scanner-container {
             display: none;
             margin: 20px 0;
@@ -46,14 +45,15 @@
         }
         
         #last-scan {
-            padding: 10px;
+            padding: 12px;
             margin: 10px 0;
             border-radius: 4px;
             font-weight: bold;
             display: none;
+            font-size: 16px;
         }
-        .scan-success { background: #d5f4e6; color: #27ae60; }
-        .scan-error { background: #fadbd8; color: #e74c3c; }
+        .scan-success { background: #d5f4e6; color: #27ae60; border-left: 4px solid #27ae60; }
+        .scan-error { background: #fadbd8; color: #e74c3c; border-left: 4px solid #e74c3c; }
     </style>
 </head>
 <body>
@@ -66,17 +66,21 @@
 
     <h2>📷 Scanner QR Code</h2>
     <div class="form-row">
-        <button class="scan" onclick="toggleScanner()">
-            <span id="scan-btn-text">📷 Iniciar Scanner</span>
+        <label>Qtd:</label>
+        <input type="number" id="quantidade" min="1" value="1" style="width: 80px;">
+        <button class="scan" onclick="iniciarScanner()">
+            📷 Escanear QR Code
         </button>
-        <input type="number" id="quantidade" placeholder="Quantidade" min="1" value="1" style="width: 100px;">
     </div>
     
     <div id="scanner-container">
         <div id="reader"></div>
         <p style="text-align: center; margin-top: 10px; color: #7f8c8d;">
-            Aponte a câmera para o QR Code
+            Aponte a câmera para o QR Code...
         </p>
+        <div style="text-align: center;">
+            <button class="danger" onclick="pararScanner()">❌ Cancelar</button>
+        </div>
     </div>
 
     <div id="last-scan"></div>
@@ -90,26 +94,19 @@
     </div>
 
     <script>
-        // Kits válidos para o teste
         const KITS_VALIDOS = ['SN', 'SH', 'FB', 'FC'];
         
         let kits = [];
         let html5QrCode = null;
         let scannerAtivo = false;
-        let ultimoScan = { codigo: '', timestamp: 0 };
-
-        function toggleScanner() {
-            if (scannerAtivo) {
-                pararScanner();
-            } else {
-                iniciarScanner();
-            }
-        }
+        let processandoScan = false;
 
         function iniciarScanner() {
+            if (scannerAtivo) return;
+            
             const container = document.getElementById('scanner-container');
-            const btnText = document.getElementById('scan-btn-text');
             container.style.display = 'block';
+            processandoScan = false;
             
             html5QrCode = new Html5Qrcode("reader");
             
@@ -120,15 +117,14 @@
             };
 
             html5QrCode.start(
-                { facingMode: "environment" }, // câmera traseira
+                { facingMode: "environment" },
                 config,
                 onScanSuccess,
                 onScanError
             ).then(() => {
                 scannerAtivo = true;
-                btnText.textContent = '⏹️ Parar Scanner';
             }).catch(err => {
-                mostrarStatus('Erro ao iniciar câmera: ' + err, false);
+                mostrarStatus('❌ Erro ao iniciar câmera: ' + err, false);
                 container.style.display = 'none';
             });
         }
@@ -136,25 +132,33 @@
         function pararScanner() {
             if (html5QrCode && scannerAtivo) {
                 html5QrCode.stop().then(() => {
+                    html5QrCode.clear();
                     document.getElementById('scanner-container').style.display = 'none';
-                    document.getElementById('scan-btn-text').textContent = '📷 Iniciar Scanner';
                     scannerAtivo = false;
-                }).catch(err => console.error('Erro ao parar:', err));
+                    processandoScan = false;
+                }).catch(err => {
+                    console.error('Erro ao parar:', err);
+                    document.getElementById('scanner-container').style.display = 'none';
+                    scannerAtivo = false;
+                    processandoScan = false;
+                });
+            } else {
+                document.getElementById('scanner-container').style.display = 'none';
             }
         }
 
         function onScanSuccess(decodedText, decodedResult) {
-            const codigo = decodedText.trim().toUpperCase();
-            const agora = Date.now();
+            // Evitar processar múltiplas vezes
+            if (processandoScan) return;
+            processandoScan = true;
             
-            // Evitar leituras duplicadas em menos de 2 segundos
-            if (ultimoScan.codigo === codigo && (agora - ultimoScan.timestamp) < 2000) {
-                return;
-            }
-            ultimoScan = { codigo, timestamp: agora };
+            const codigo = decodedText.trim().toUpperCase();
             
             // Beep de confirmação
             beep();
+            
+            // Fechar câmera imediatamente após scan
+            pararScanner();
             
             // Validar
             if (!KITS_VALIDOS.includes(codigo)) {
@@ -178,7 +182,7 @@
         }
 
         function onScanError(error) {
-            // Silencioso - erros de scan são normais quando não há QR code na tela
+            // Silencioso
         }
 
         function beep() {
@@ -203,7 +207,7 @@
             
             setTimeout(() => {
                 el.style.display = 'none';
-            }, 3000);
+            }, 4000);
         }
 
         function renderLista() {
@@ -215,9 +219,7 @@
             kits.forEach((kit, i) => {
                 totalQtd += kit.quantidade;
                 const li = document.createElement('li');
-                li.innerHTML = `
-                    <span><strong>${kit.codigo}</strong> — Qtd: ${kit.quantidade}</span>
-                `;
+                li.innerHTML = `<span><strong>${kit.codigo}</strong> — Qtd: ${kit.quantidade}</span>`;
                 const btn = document.createElement('button');
                 btn.className = 'danger';
                 btn.textContent = 'Remover';
