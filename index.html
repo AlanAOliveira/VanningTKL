@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vanning TKL - Teste QR Scanner</title>
+    <title>Vanning TKL - QR Scanner</title>
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <style>
         body { font-family: Arial, sans-serif; max-width: 800px; margin: 20px auto; padding: 20px; }
@@ -11,11 +11,15 @@
         h2 { color: #34495e; }
         .form-row { display: flex; gap: 10px; margin: 10px 0; flex-wrap: wrap; align-items: center; }
         input { padding: 8px; font-size: 14px; }
+        input#container { width: 250px; text-transform: uppercase; }
         button { padding: 10px 16px; cursor: pointer; background: #3498db; color: white; border: none; border-radius: 4px; font-size: 14px; }
         button:hover { background: #2980b9; }
+        button:disabled { background: #95a5a6; cursor: not-allowed; }
         button.danger { background: #e74c3c; }
         button.success { background: #27ae60; }
         button.scan { background: #8e44ad; font-size: 16px; padding: 12px 24px; }
+        button.send { background: #16a085; font-size: 15px; padding: 12px 20px; }
+        button.photo { background: #e67e22; font-size: 15px; padding: 12px 20px; }
         ul { list-style: none; padding: 0; }
         li { padding: 10px; background: #f4f4f4; margin: 5px 0; display: flex; justify-content: space-between; align-items: center; border-radius: 4px; }
         .total { font-weight: bold; margin: 10px 0; font-size: 16px; }
@@ -54,20 +58,108 @@
         }
         .scan-success { background: #d5f4e6; color: #27ae60; border-left: 4px solid #27ae60; }
         .scan-error { background: #fadbd8; color: #e74c3c; border-left: 4px solid #e74c3c; }
+        .scan-info { background: #d6eaf8; color: #2874a6; border-left: 4px solid #2874a6; }
+        
+        .container-section {
+            background: #fef9e7;
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid #f39c12;
+            margin: 15px 0;
+        }
+
+        .photos-section {
+            background: #eafaf1;
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid #16a085;
+            margin: 15px 0;
+        }
+
+        #photo-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 10px;
+            margin-top: 12px;
+        }
+        .photo-item {
+            position: relative;
+            border-radius: 6px;
+            overflow: hidden;
+            background: #fff;
+            border: 2px solid #ddd;
+            aspect-ratio: 1;
+        }
+        .photo-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+        .photo-item .remove-photo {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            background: rgba(231, 76, 60, 0.95);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 26px;
+            height: 26px;
+            cursor: pointer;
+            font-weight: bold;
+            padding: 0;
+            font-size: 14px;
+            line-height: 26px;
+        }
+        .photo-item .photo-size {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0,0,0,0.6);
+            color: white;
+            font-size: 11px;
+            text-align: center;
+            padding: 2px;
+        }
+
+        #photo-input { display: none; }
+
+        .spinner {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid #fff;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            vertical-align: middle;
+            margin-right: 6px;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
-    <h1>🧪 Teste QR Scanner - Vanning TKL</h1>
+    <h1>🧪 Vanning TKL - QR Scanner</h1>
     
     <div class="valid-kits">
-        <strong>Kits válidos para teste:</strong>
+        <strong>Kits válidos:</strong>
         <code>SN</code> <code>SH</code> <code>FB</code> <code>FC</code>
+    </div>
+
+    <div class="container-section">
+        <h2 style="margin-top:0;">📦 Container</h2>
+        <div class="form-row">
+            <label><strong>ID do Container:</strong></label>
+            <input type="text" id="container" placeholder="Ex: FDCU0481591" maxlength="15">
+        </div>
     </div>
 
     <h2>📷 Scanner QR Code</h2>
     <div class="form-row">
-        <label>Qtd:</label>
-        <input type="number" id="quantidade" min="1" value="1" style="width: 80px;">
         <button class="scan" onclick="iniciarScanner()">
             📷 Escanear QR Code
         </button>
@@ -89,17 +181,152 @@
     <ul id="lista"></ul>
     <div class="total" id="total">Total: 0 peças</div>
 
+    <div class="photos-section">
+        <h2 style="margin-top:0;">📸 Fotos do Container</h2>
+        <p style="margin: 5px 0; color: #555; font-size: 13px;">
+            Tire fotos do carregamento. As imagens serão comprimidas e salvas no SharePoint.
+        </p>
+        <div class="form-row">
+            <button class="photo" onclick="document.getElementById('photo-input').click()">
+                📸 Adicionar Foto
+            </button>
+            <span id="photo-count" style="color: #555;">0 fotos</span>
+        </div>
+        <input type="file" id="photo-input" accept="image/*" capture="environment" multiple>
+        <div id="photo-grid"></div>
+    </div>
+
     <div class="form-row">
-        <button class="danger" onclick="limparLista()">🗑️ Limpar Lista</button>
+        <button class="danger" onclick="limparTudo()">🗑️ Limpar Tudo</button>
+        <button class="send" id="btn-enviar" onclick="enviarLista()">📤 Enviar Lista</button>
     </div>
 
     <script>
         const KITS_VALIDOS = ['SN', 'SH', 'FB', 'FC'];
+        const POWER_AUTOMATE_URL = 'https://default3855fb14c2214399b3f897d96a4ce4.5d.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/10/workflows/f6481f6df8cd44a694c3ea019d432bd9/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=APWgHE-fDElM-m2ztG56zUlc4f98I5XLTE2am7TvgA0';
+        
+        // Image compression settings
+        const MAX_IMAGE_WIDTH = 1280;      // Max width in pixels
+        const IMAGE_QUALITY = 0.75;         // JPEG quality (0.0 - 1.0)
+        const MAX_PHOTOS = 10;              // Maximum photos allowed
         
         let kits = [];
+        let photos = []; // { name, base64, size }
         let html5QrCode = null;
         let scannerAtivo = false;
         let processandoScan = false;
+
+        // Force container uppercase
+        document.getElementById('container').addEventListener('input', function(e) {
+            e.target.value = e.target.value.toUpperCase();
+        });
+
+        // ===== PHOTO HANDLING =====
+        
+        document.getElementById('photo-input').addEventListener('change', async function(e) {
+            const files = Array.from(e.target.files);
+            
+            for (const file of files) {
+                if (photos.length >= MAX_PHOTOS) {
+                    mostrarStatus(`⚠️ Máximo de ${MAX_PHOTOS} fotos atingido!`, 'error');
+                    break;
+                }
+                
+                try {
+                    mostrarStatus('<span class="spinner"></span> Processando imagem...', 'info');
+                    const compressed = await comprimirImagem(file);
+                    photos.push(compressed);
+                    renderPhotos();
+                    mostrarStatus(`✅ Foto adicionada (${formatSize(compressed.size)})`, 'success');
+                } catch (err) {
+                    mostrarStatus(`❌ Erro ao processar imagem: ${err.message}`, 'error');
+                }
+            }
+            
+            // Reset input to allow re-selecting same file
+            e.target.value = '';
+        });
+
+        function comprimirImagem(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        // Calculate new dimensions
+                        let width = img.width;
+                        let height = img.height;
+                        
+                        if (width > MAX_IMAGE_WIDTH) {
+                            height = (MAX_IMAGE_WIDTH / width) * height;
+                            width = MAX_IMAGE_WIDTH;
+                        }
+                        
+                        // Draw to canvas
+                        const canvas = document.createElement('canvas');
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        
+                        // Convert to base64 JPEG
+                        const dataUrl = canvas.toDataURL('image/jpeg', IMAGE_QUALITY);
+                        const base64 = dataUrl.split(',')[1]; // Remove "data:image/jpeg;base64," prefix
+                        
+                        // Estimate size (base64 is ~4/3 of binary)
+                        const sizeBytes = Math.round((base64.length * 3) / 4);
+                        
+                        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+                        const name = `photo_${timestamp}_${photos.length + 1}.jpg`;
+                        
+                        resolve({
+                            name: name,
+                            base64: base64,
+                            dataUrl: dataUrl,
+                            size: sizeBytes
+                        });
+                    };
+                    img.onerror = () => reject(new Error('Falha ao carregar imagem'));
+                    img.src = e.target.result;
+                };
+                reader.onerror = () => reject(new Error('Falha ao ler arquivo'));
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function renderPhotos() {
+            const grid = document.getElementById('photo-grid');
+            const count = document.getElementById('photo-count');
+            grid.innerHTML = '';
+            
+            let totalSize = 0;
+            photos.forEach((photo, i) => {
+                totalSize += photo.size;
+                const div = document.createElement('div');
+                div.className = 'photo-item';
+                div.innerHTML = `
+                    <img src="${photo.dataUrl}" alt="Foto ${i+1}">
+                    <button class="remove-photo" onclick="removerFoto(${i})">×</button>
+                    <div class="photo-size">${formatSize(photo.size)}</div>
+                `;
+                grid.appendChild(div);
+            });
+            
+            count.textContent = `${photos.length} foto${photos.length !== 1 ? 's' : ''} (${formatSize(totalSize)} total)`;
+        }
+
+        function removerFoto(index) {
+            photos.splice(index, 1);
+            renderPhotos();
+        }
+
+        function formatSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+        }
+
+        // ===== QR SCANNER =====
 
         function iniciarScanner() {
             if (scannerAtivo) return;
@@ -116,7 +343,7 @@
                 aspectRatio: 1.0
             };
 
-            html5QrCode.start(
+html5QrCode.start(
                 { facingMode: "environment" },
                 config,
                 onScanSuccess,
@@ -124,7 +351,7 @@
             ).then(() => {
                 scannerAtivo = true;
             }).catch(err => {
-                mostrarStatus('❌ Erro ao iniciar câmera: ' + err, false);
+                mostrarStatus('❌ Erro ao iniciar câmera: ' + err, 'error');
                 container.style.display = 'none';
             });
         }
@@ -148,42 +375,32 @@
         }
 
         function onScanSuccess(decodedText, decodedResult) {
-            // Evitar processar múltiplas vezes
             if (processandoScan) return;
             processandoScan = true;
             
             const codigo = decodedText.trim().toUpperCase();
             
-            // Beep de confirmação
             beep();
-            
-            // Fechar câmera imediatamente após scan
             pararScanner();
             
-            // Validar
             if (!KITS_VALIDOS.includes(codigo)) {
-                mostrarStatus(`❌ "${codigo}" não é um kit válido! (Válidos: SN, SH, FB, FC)`, false);
+                mostrarStatus(`❌ "${codigo}" não é um kit válido! (Válidos: SN, SH, FB, FC)`, 'error');
                 return;
             }
             
-            const quantidade = parseInt(document.getElementById('quantidade').value) || 1;
-            
-            // Adicionar ou somar
             const existente = kits.find(k => k.codigo === codigo);
             if (existente) {
-                existente.quantidade += quantidade;
-                mostrarStatus(`✅ ${codigo} +${quantidade} (Total: ${existente.quantidade})`, true);
+                existente.quantidade += 1;
+                mostrarStatus(`✅ ${codigo} +1 (Total: ${existente.quantidade})`, 'success');
             } else {
-                kits.push({ codigo, quantidade });
-                mostrarStatus(`✅ ${codigo} adicionado (Qtd: ${quantidade})`, true);
+                kits.push({ codigo, quantidade: 1 });
+                mostrarStatus(`✅ ${codigo} adicionado`, 'success');
             }
             
             renderLista();
         }
 
-        function onScanError(error) {
-            // Silencioso
-        }
+        function onScanError(error) {}
 
         function beep() {
             try {
@@ -199,15 +416,21 @@
             } catch(e) {}
         }
 
-        function mostrarStatus(msg, sucesso) {
+        function mostrarStatus(msg, tipo) {
             const el = document.getElementById('last-scan');
-            el.textContent = msg;
-            el.className = sucesso ? 'scan-success' : 'scan-error';
+            el.innerHTML = msg;
+            
+            if (tipo === 'success') el.className = 'scan-success';
+            else if (tipo === 'error') el.className = 'scan-error';
+            else el.className = 'scan-info';
+            
             el.style.display = 'block';
             
-            setTimeout(() => {
-                el.style.display = 'none';
-            }, 4000);
+            if (tipo !== 'info') {
+                setTimeout(() => {
+                    el.style.display = 'none';
+                }, 4000);
+            }
         }
 
         function renderLista() {
@@ -219,12 +442,16 @@
             kits.forEach((kit, i) => {
                 totalQtd += kit.quantidade;
                 const li = document.createElement('li');
-                li.innerHTML = `<span><strong>${kit.codigo}</strong> — Qtd: ${kit.quantidade}</span>`;
+                li.innerHTML = `<span><strong>${kit.codigo}.box</strong> — Qtd: ${kit.quantidade}</span>`;
                 const btn = document.createElement('button');
                 btn.className = 'danger';
                 btn.textContent = 'Remover';
                 btn.onclick = () => {
-                    kits.splice(i, 1);
+                    if (kit.quantidade > 1) {
+                        kit.quantidade -= 1;
+                    } else {
+                        kits.splice(i, 1);
+                    }
                     renderLista();
                 };
                 li.appendChild(btn);
@@ -234,15 +461,96 @@
             total.textContent = `Total: ${totalQtd} peças (${kits.length} tipos)`;
         }
 
-        function limparLista() {
-            if (kits.length === 0) return;
-            if (confirm('Limpar toda a lista?')) {
+        function limparTudo() {
+            if (kits.length === 0 && photos.length === 0) return;
+            if (confirm('Limpar toda a lista e fotos?')) {
                 kits = [];
+                photos = [];
                 renderLista();
+                renderPhotos();
+            }
+        }
+
+        function gerarObjetoJSON() {
+            const container = document.getElementById('container').value.trim().toUpperCase();
+            
+            return {
+                container: container,
+                kits: kits.map(k => ({
+                    name: `${k.codigo}.box`,
+                    qtd: k.quantidade
+                })),
+                photos: photos.map(p => ({
+                    name: p.name,
+                    content: p.base64
+                })),
+                timestamp: new Date().toISOString()
+            };
+        }
+
+        async function enviarLista() {
+            const container = document.getElementById('container').value.trim();
+            
+            if (!container) {
+                mostrarStatus('❌ Informe o ID do Container antes de enviar!', 'error');
+                document.getElementById('container').focus();
+                return;
+            }
+            
+            if (kits.length === 0) {
+                mostrarStatus('❌ Lista de kits está vazia!', 'error');
+                return;
+            }
+
+            const totalPhotoSize = photos.reduce((sum, p) => sum + p.size, 0);
+            const confirmMsg = `Confirmar envio?\n\nContainer: ${container.toUpperCase()}\nKits: ${kits.length} tipos\nFotos: ${photos.length} (${formatSize(totalPhotoSize)})`;
+            
+            if (!confirm(confirmMsg)) return;
+
+            const btn = document.getElementById('btn-enviar');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span> Enviando...';
+            
+            mostrarStatus('<span class="spinner"></span> Enviando lista e fotos para o Power Automate...', 'info');
+
+            const payload = gerarObjetoJSON();
+
+            try {
+                const response = await fetch(POWER_AUTOMATE_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (response.ok) {
+                    mostrarStatus(`✅ Lista enviada com sucesso! (Status: ${response.status})`, 'success');
+                    setTimeout(() => {
+                        if (confirm('Envio concluído! Deseja limpar tudo para um novo container?')) {
+                            kits = [];
+                            photos = [];
+                            document.getElementById('container').value = '';
+                            renderLista();
+                            renderPhotos();
+                        }
+                    }, 500);
+                } else {
+                    const errorText = await response.text().catch(() => '');
+                    mostrarStatus(`❌ Erro no envio (Status: ${response.status}) ${errorText}`, 'error');
+                    console.error('Erro Power Automate:', response.status, errorText);
+                }
+            } catch (err) {
+                mostrarStatus(`❌ Erro de rede: ${err.message}`, 'error');
+                console.error('Erro fetch:', err);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '📤 Enviar Lista';
             }
         }
 
         renderLista();
+        renderPhotos();
     </script>
 </body>
 </html>

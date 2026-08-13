@@ -1,0 +1,13 @@
+{
+    "container": "FDCU0481591",
+    "kits": [
+        {
+            "name": "SH.box",
+            "qtd": 10
+        },
+        {
+            "name": "FC.box",
+            "qtd": 15
+        }
+    ]
+}
